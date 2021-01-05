@@ -6,42 +6,30 @@ library(future)
 library(furrr)
 
 anova_test <- function(data_tibble) {
-  res.aov <-
-    anova_test(
-      data = data_tibble,
-      dv = voltage,
-      wid = subject,
-      between = experiment_type,
-      within = c(presentation_mode, agent)
-    )
+  res.aov <- anova_test( data = data_tibble, dv = voltage, wid = subject,
+                         between = experiment_type, within = c(presentation_mode, agent))
   anova_df <- res.aov$ANOVA
   return(anova_df)
 }
-normalityTest <- function(data_tibble) {
-  result <-
-    data_tibble %>% group_by(agent, presentation_mode, experiment_type) %>%
+normality_test <- function(data_tibble){
+  result <- data_tibble %>% group_by(agent, presentation_mode, experiment_type) %>%
     shapiro_test(voltage)
-  nonNormal <- result[which(result$p < 0.05),]
-  return(nonNormal)
+  non_normal <- result[which(result$p < 0.05), ]
+  return(non_normal)
 }
-variance_test <- function(data_tibble, alpha = 0.05) {
-  variance_test_results <-
-    data_tibble %>% group_by(agent, presentation_mode) %>%
+variance_test <- function(data_tibble,alpha=0.05){
+  variance_test_results <- data_tibble %>% group_by(agent, presentation_mode) %>%
     levene_test(voltage ~ experiment_type)
-  nonHomog <-
-    variance_test_results[which(variance_test_results$p < alpha),]
-  return (nonHomog)
+  non_homog <- variance_testResults[which(variance_test_results$p < alpha), ]
+  return (non_homog)
 }
-outlierTest <- function(data_tibble) {
+outlier_test <- function(data_tibble){
   outliers <- data_tibble %>%
     group_by(agent, presentation_mode, experiment_type) %>%
     identify_outliers(voltage)
-  extreme_outliers <- outliers[which(outliers$is.extreme),]
+  extreme_outliers <- outliers[which(outliers$is.extreme), ]
   return(extreme_outliers)
 }
-
-# For Sena's windows 
-# setwd("C:\\Users\\lenovo\\Desktop\\r")
 
 prior_data <- readMat("PriorERPs.mat")
 naive_data <- readMat("NaiveERPs.mat")
@@ -178,90 +166,25 @@ tbb_nest <- by_electrode_time %>% nest()
 no_cores <- availableCores()
 plan(multicore, workers = no_cores)
 
-anova_results_tibble <- tbb_nest %>%
+anova_results <- tbb_nest %>% 
   mutate(anova_res = future_map(data, anova_test)) %>%
   unnest(cols = anova_res)
-normality_results_tibble <- tbb_nest %>%
-  mutate(anova_res = future_map(data, normalityTest)) %>%
+normality_results <- tbb_nest %>% 
+  mutate(anova_res = future_map(data, normality_test)) %>%
   unnest(cols = anova_res)
-homogenity_results_tibble <- tbb_nest %>%
+homogenity_results <- tbb_nest %>% 
   mutate(anova_res = future_map(data, variance_test)) %>%
   unnest(cols = anova_res)
-outlier_results_tibble <- tbb_nest %>%
-  mutate(anova_res = future_map(data, outlierTest)) %>%
+outlier_results <- tbb_nest %>% 
+  mutate(anova_res = future_map(data, outlier_test)) %>%
   unnest(cols = anova_res)
 
+# Multiple correction on anova results
+anova_results <- anova_results %>% group_by(Effect)%>% 
+  mutate(bonferroni_p = p.adjust(p,'bonferroni'),
+         fdr_p = p.adjust(p,'fdr'))
 
-# Save an object to a file
-# save.image(file = "anova-environment.RData")
-
-# Divide anova Results to different effects
-agent_effect <-
-  anova_results_tibble[anova_results_tibble$Effect == "agent", ]
-experiment_type_effect <-
-  anova_results_tibble[anova_results_tibble$Effect == "experiment_type", ]
-experiment_type_agent_effect <-
-  anova_results_tibble[anova_results_tibble$Effect == "experiment_type:agent", ]
-presentation_mode_effect <-
-  anova_results_tibble[anova_results_tibble$Effect == "presentation_mode", ]
-experiment_typePresentation_mode_effect <-
-  anova_results_tibble[anova_results_tibble$Effect == "experiment_type:presentation_mode", ]
-presentation_modeAgent_effect <-
-  anova_results_tibble[anova_results_tibble$Effect == "presentation_mode:agent", ]
-experiment_typePresentation_modeAgent_effect <-
-  anova_results_tibble[anova_results_tibble$Effect == "experiment_type:presentation_mode:agent", ]
-
-
-############### Multiple Corrections ##################
-# With FDR and Bonferroni
-# Multiple comparisons corrections for each effect type
-# TODO functionize this and maybe move to a different script
-
-correctionMethod = "fdr"
-n_comparisons = 62 * 400
-agent_effect$FDRp <-
-  p.adjust(agent_effect$p, method = correctionMethod)
-experiment_type_effect$FDRp <-
-  p.adjust(experiment_type_effect$p, method = correctionMethod, n = n_comparisons)
-experiment_type_agent_effect$FDRp <-
-  p.adjust(experiment_typeAgent_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
-presentation_mode_effect$FDRp <-
-  p.adjust(presentation_mode_effect$p, method = correctionMethod, n = n_comparisons)
-experiment_typePresentation_mode_effect$FDRp <-
-  p.adjust(experiment_typePresentation_mode_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
-presentation_modeAgent_effect$FDRp <-
-  p.adjust(presentation_modeAgent_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
-experiment_typePresentation_modeAgent_effect$FDRp <-
-  p.adjust(experiment_typePresentation_modeAgent_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
-
-correctionMethod = "bonferroni"
-agent_effect$bonferroniP <-
-  p.adjust(agent_effect$p, method = correctionMethod, n = n_comparisons)
-experiment_type_effect$bonferronip <-
-  p.adjust(experiment_type_effect$p, method = correctionMethod, n = n_comparisons)
-experiment_typeAgent_effect$bonferronip <-
-  p.adjust(experiment_typeAgent_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
-presentation_mode_effect$bonferronip <-
-  p.adjust(presentation_mode_effect$p, method = correctionMethod, n = n_comparisons)
-experiment_typePresentation_mode_effect$bonferronip <-
-  p.adjust(experiment_typePresentation_mode_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
-presentation_modeAgent_effect$bonferronip <-
-  p.adjust(presentation_modeAgent_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
-experiment_typePresentation_modeAgent_effect$bonferronip <-
-  p.adjust(experiment_typePresentation_modeAgent_effect$p,
-           method = correctionMethod,
-           n = n_comparisons)
+save(anova_results, file="data/corrected-anova_results.RData")
+save(outlier_results, file="data/outlier_results.Rdata")
+save(homogenity_results, file="data/homogenity_results.RData")
+save(normality_results, file="data/normality_results.RData")

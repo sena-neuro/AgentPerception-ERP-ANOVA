@@ -1,16 +1,19 @@
 library(ggplot2)
+library(tidyverse)
+load("data/corrected-anova_results.RData")
+load("data/homogenity_results.RData")
+load("data/normality_results.RData")
+load("data/outlier_results.Rdata")
 
-# save(agent_effect, file="data/corrected-agent_effect.RData")
-load("data/corrected-agent_effect.RData")
-
-createHeatMap <- function(resultTibble, p_column){
-  heatMap <- ggplot(resultTibble, aes(time, electrode, fill= resultTibble[[p_column]])) +
+create_heat_map <- function(result_tibble, p_column, plot_name){
+  heat_map <- ggplot(result_tibble, aes(time, electrode, fill= result_tibble[[p_column]])) +
     geom_tile() + 
     scale_fill_gradient(low = "red", high = "green", limits=c(0,0.05), name="Corrected p-value") +
     # Find a better plot name
-    labs(title = p_column)
-  return(heatMap)
+    labs(title = plot_name)
+  return(heat_map)
 }
 
-createHeatMap(agent_effect, "bonferroniP")
-createHeatMap(agent_effect, "FDRp")
+anova_plots <- anova_results %>% do(plot = create_heat_map(.,"bonferroni_p","bonferroni_corrected_anova_results"))
+normality_plot <- create_heat_map(ungroup(normality_results),"p","Normality Results")
+homogenity_plot <- create_heat_map(ungroup(homogenity_results),"p","Homogenity Results")
