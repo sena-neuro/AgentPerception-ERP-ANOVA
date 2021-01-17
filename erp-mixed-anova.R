@@ -76,7 +76,7 @@ electrode_vec <- rep(electrodes, times=rep2)
 
 rep1 <- rep1 * n_el
 rep2 <- total_n/(rep1*n_t)
-time_vec <- rep( 1:n_t, each=rep1, times=rep2)
+time_vec <- rep( ((0:n_t)-100)*2, each=rep1, times=rep2)
 
 rep1 <- rep1 * n_t
 rep2 <- total_n/(rep1*n_a)
@@ -120,7 +120,7 @@ electrode_vec <- rep(electrodes, times=rep2)
 
 rep1 <- rep1 * n_el
 rep2 <- total_n/(rep1*n_t)
-time_vec <- rep( 1:n_t, each=rep1, times=rep2)
+time_vec <- rep( ((0:n_t)-100)*2, each=rep1, times=rep2)
 
 rep1 <- rep1 * n_t
 rep2 <- total_n/(rep1*n_a)
